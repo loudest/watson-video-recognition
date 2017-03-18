@@ -1,0 +1,90 @@
+<html>
+
+<head>
+    <title>Video stream object detection example</title>
+    <script>
+        /**
+         * Handles fetching JSON over HTTP
+         */
+        function fetchJSON(method, url, onSuccess, onError) {
+            var request = new XMLHttpRequest();
+            request.open(method, url, true);
+            request.onload = function () {
+                // If loading is complete
+                if (request.readyState === 4) {
+                    // if the request was successful
+                    if (request.status === 200) {
+                        var data;
+
+                        // Parse the JSON in the response
+                        try {
+                            data = JSON.parse(request.responseText);
+                        } catch (error) {
+                            onError(request.status, error.toString());
+                        }
+
+                        onSuccess(data);
+                    } else {
+                        onError(request.status, request.responseText)
+                    }
+                }
+            };
+
+            request.send();
+        }
+
+        // Initialize the application when the DOM is loaded and ready to be
+        // manipulated
+        document.addEventListener("DOMContentLoaded", function () {
+            var text = document.getElementById('text'),
+                player = document.getElementById('player'),
+                submit = document.getElementById('submit');
+
+            // Play the audio stream when the form is submitted successfully
+            input.addEventListener('submit', function (event) {
+                // Point the player to the streaming server
+                player.src = '/parse/' + encodeURIComponent(selectedVoice) + '/mp3?text=' + encodeURIComponent(text.value);
+                player.play();
+                event.preventDefault();
+            });
+
+        });
+
+    </script>
+    <style>
+        #input {
+            min-width: 100px;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 50px;
+        }
+
+        #input div {
+            margin-bottom: 20px;
+        }
+
+        #text {
+            width: 100%;
+            height: 200px;
+            display: block;
+        }
+
+        #submit {
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <form id="input" method="POST" action="/parse">
+        <div>
+            <label for="text">URL of video to render:</label>
+            <textarea id="text" maxlength="1000" minlength="1" name="text"
+                    placeholder="Type some text here..."></textarea>
+        </div>
+        <input type="submit" value="Run" id="submit" />
+    </form>
+    <audio id="player"></audio>
+</body>
+
+</html>
