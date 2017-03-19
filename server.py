@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import os, requests, redis, cv2, urllib, getopt, terminal, ntpath
+import os, requests, redis, cv2, urllib, getopt, terminal, ntpath, sys
 from json import dumps as json_encode
 from json import loads as json_decode
 from flask import Flask, request, make_response, render_template
@@ -7,17 +7,9 @@ from boto3 import Session
 from botocore.exceptions import BotoCoreError, ClientError
 from threading import Thread
 
-#app = Flask(__name__)
-#app.config['ASK_VERIFY_REQUESTS'] = False
 session = Session(profile_name="video-aws")
-polly = session.client("rekognition")
+ml = session.client("rekognition")
 
-# Flask microservice
-#@app.route('/')
-#def homepage():
-#    return render_template('index.html')
-
-#@app.route('/parse', methods=['POST','GET'])
 def path_leaf(path):
     head, tail = ntpath.split(path)
     return tail or ntpath.basename(head)
@@ -40,14 +32,16 @@ def render_video(name):
     length = video.get(cv2.CAP_PROP_FRAME_COUNT)
     fps = video.get(cv2.CAP_PROP_FPS)
     min = int( length / fps )
-    print( min )
+    print "* Data sets: %s" % (min)
 
     for x in range(1, min):
         pos = x * 1000
         video.set(cv2.CAP_PROP_POS_MSEC,pos)      # just cue to 20 sec. position
         success,image = video.read()
         if success:
-            cv2.imwrite('/tmp/video-aws/'+file+'/'+x+'.jpeg', image)     # save frame as JPEG file
+            cv2.imwrite('/tmp/video-aws/'+file+'/'+str(x)+'.jpeg', image, [int(cv2.IMWRITE_JPEG_QUALITY), 40])     # save frame as JPEG file
+
+    return True
 
 def usage():
     print "./parse.py -f <file> -h"
@@ -76,17 +70,13 @@ def main(argv):
         usage()
         sys.exit(-1)
 
-    print term.RED + " * File: %s " % (file) + term.NORMAL
+    print "* File: %s " % (file)
     render_video(file)
 
-render_video(video)
+    return True
 
 if __name__ == "__main__":
 
-    print "\n/*"
-    print "********"
-    print "*"+term.RED + " Macihine Learning Video Object Detection "+term.NORMAL+"*"
-    print "********"
-    print " */\n"
+    print "Machine Video Object Detection/\n"
 
     main(sys.argv[1:])
