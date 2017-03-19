@@ -65,7 +65,7 @@ def upload_s3(file, image, count, percent):
 def analyze_file(s3_bucket, file_name):
     image_url = 'https://s3-us-wet-2.amazonaws.com/%s/%s' % (s3_bucket, file_name)
     watson_url = 'https://visual-recognition-demo.mybluemix.net/api/classify'
-    r = requests.post(watson_url, data = {'url':'https://s3-us-west-2.amazonaws.com/ace-ml-video/ex1/27.jpeg'})
+    r = requests.post(watson_url, data = {'url':image_url})
     try:
         identity = json_decode(r.text)['images'][0]['faces'][0]['identity']['name']
     except:
