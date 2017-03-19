@@ -9,7 +9,7 @@ session = Session(profile_name="video-aws")
 term = terminal.TerminalController()
 s3 = session.client('s3')
 s3_bucket = 'ace-ml-video'
-files = []
+faces = {}
 #min_confidence_level = 60
 
 def render_video(name):
@@ -29,7 +29,7 @@ def render_video(name):
 
     length = video.get(cv2.CAP_PROP_FRAME_COUNT)
     fps = video.get(cv2.CAP_PROP_FPS)
-    min = int( length / fps ) / 2
+    min = int( length / fps ) / 10
     print "* Data sets: %s" % (min)
 
     contexts = {}
@@ -37,7 +37,7 @@ def render_video(name):
     # run every 4 seconds
     for x in range(1, min):
         percent = float(x) / float(min)
-        pos = x * 1000 * 2
+        pos = x * 1000 * 10
         video.set(cv2.CAP_PROP_POS_MSEC,pos)      # just cue to 20 sec. position
         success,image = video.read()
         if success:
@@ -52,14 +52,31 @@ def render_video(name):
 
 
 def upload_s3(file, image, count, percent):
-    print("\033[F"+'Analyzing video: '+str(int(percent * 100))+'%')    
+    print("\033[F"+'Analyzing video: '+str(int(percent * 100))+'%') 
     file_name = file+'/'+str(count)+'.jpeg'
     file_location = '/tmp/video-aws/'+file_name
     image = cv2.resize(image, (0,0), fx=0.50, fy=0.50) 
     cv2.imwrite(file_location, image, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
-    #s3.upload_file(file_location, s3_bucket, file_name, {'ACL': 'public-read','ContentType': "image/jpeg"})
-    files.append(file_name)
+    s3.upload_file(file_location, s3_bucket, file_name, {'ACL': 'public-read','ContentType': "image/jpeg"})
     os.remove(file_location)
+    analyze_file(s3_bucket, file_name)
+
+#  run IBM watson on this
+def analyze_file(s3_bucket, file_name):
+    image_url = 'https://s3-us-wet-2.amazonaws.com/%s/%s' % (s3_bucket, file_name)
+    watson_url = 'https://visual-recognition-demo.mybluemix.net/api/classify'
+    r = requests.post(watson_url, data = {'url':'https://s3-us-west-2.amazonaws.com/ace-ml-video/ex1/27.jpeg'})
+    try:
+        identity = json_decode(r.text)['images'][0]['faces'][0]['identity']['name']
+    except:
+        identity = None
+    if(identity != None):
+        faces[identity] = ''
+
+def display_ml_detection():
+    for key in faces:
+        if(len(key) > 0):
+            print("Detected person: "+key)
 
 #def train_model():
 #    contexts = {}
@@ -109,13 +126,11 @@ def main(argv):
 
     print "* File: %s \n" % (file)
     render_video(file)
-    #data_model = train_amazon_model()
-    #print(data_model)
-
+    display_ml_detection()
     return True
 
 if __name__ == "__main__":
 
-    print "Machine Video Object Detection/\n"
+    print "Video Machine Learning Famous Person Detection/\n"
 
     main(sys.argv[1:])
