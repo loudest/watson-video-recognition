@@ -11,6 +11,7 @@ session = Session(profile_name="video-aws")
 ml = session.client("rekognition")
 s3 = session.client('s3')
 s3_bucket = 'ace-ml-video'
+files = []
 
 def path_leaf(path):
     head, tail = ntpath.split(path)
@@ -33,40 +34,49 @@ def render_video(name):
 
     length = video.get(cv2.CAP_PROP_FRAME_COUNT)
     fps = video.get(cv2.CAP_PROP_FPS)
-    min = int( length / fps )
+    min = int( length / fps ) / 4
     print "* Data sets: %s" % (min)
 
     contexts = {}
 
+    # run every 4 seconds
     for x in range(1, min):
-        pos = x * 1000
+        pos = x * 1000 * 4
         video.set(cv2.CAP_PROP_POS_MSEC,pos)      # just cue to 20 sec. position
         success,image = video.read()
         if success:
             file_name = file+'/'+str(x)+'.jpeg'
             file_location = '/tmp/video-aws/'+file_name
             cv2.imwrite(file_location, image, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
-            print(file_name)
             s3.upload_file(file_location, s3_bucket, file_name)
-            #os.remove(file_location)
-            labels = ml.detect_labels(
+            files.append(file_name)
+            os.remove(file_location)
+
+    try:
+        os.rmdir('/tmp/video-aws/'+file)  
+        os.rmdir('/tmp/video-aws/')
+
+    return True
+
+def train_model():
+    contexts = {}
+    for file_name in files:
+        print(s3_bucket+'/'+file_name)
+        labels = ml.detect_labels(
                 Image = {
                     'S3Object': {
                         'Bucket': s3_bucket,
                         'Name': file_name
                     }
                 })
-            data = labels['Labels']
-            for item in data:
-                confidence = int(item['Confidence'])
-                if(confidence >= 80):
-                    attr = str(item['Name'])
-                    contexts[attr] = ''
-
-    print( contexts )
-
-    return True
-
+        data = labels['Labels']
+        for item in data:
+            confidence = int(item['Confidence'])
+            if(confidence >= 80):
+                attr = str(item['Name'])
+                contexts[attr] = ''
+    return contexts
+ 
 def usage():
     print "./parse.py -f <file> -h"
     print " -f|--file <video to parse>"
@@ -96,6 +106,8 @@ def main(argv):
 
     print "* File: %s " % (file)
     render_video(file)
+    data_model = train_model()
+    print(data_model)
 
     return True
 
