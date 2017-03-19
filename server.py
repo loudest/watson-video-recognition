@@ -9,6 +9,8 @@ from threading import Thread
 
 session = Session(profile_name="video-aws")
 ml = session.client("rekognition")
+s3 = session.client('s3')
+s3_bucket = 'ace-ml-video'
 
 def path_leaf(path):
     head, tail = ntpath.split(path)
@@ -34,12 +36,34 @@ def render_video(name):
     min = int( length / fps )
     print "* Data sets: %s" % (min)
 
+    contexts = {}
+
     for x in range(1, min):
         pos = x * 1000
         video.set(cv2.CAP_PROP_POS_MSEC,pos)      # just cue to 20 sec. position
         success,image = video.read()
         if success:
-            cv2.imwrite('/tmp/video-aws/'+file+'/'+str(x)+'.jpeg', image, [int(cv2.IMWRITE_JPEG_QUALITY), 40])     # save frame as JPEG file
+            file_name = file+'/'+str(x)+'.jpeg'
+            file_location = '/tmp/video-aws/'+file_name
+            cv2.imwrite(file_location, image, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
+            print(file_name)
+            s3.upload_file(file_location, s3_bucket, file_name)
+            #os.remove(file_location)
+            labels = ml.detect_labels(
+                Image = {
+                    'S3Object': {
+                        'Bucket': s3_bucket,
+                        'Name': file_name
+                    }
+                })
+            data = labels['Labels']
+            for item in data:
+                confidence = int(item['Confidence'])
+                if(confidence >= 80):
+                    attr = str(item['Name'])
+                    contexts[attr] = ''
+
+    print( contexts )
 
     return True
 
