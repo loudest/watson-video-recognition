@@ -1,25 +1,20 @@
 #!/usr/bin/env python
-import os, requests, redis, cv2, urllib, getopt, terminal, ntpath, sys
+import os, requests, redis, cv2, urllib, sys, terminal, getopt
 from json import dumps as json_encode
 from json import loads as json_decode
-from flask import Flask, request, make_response, render_template
 from boto3 import Session
 from botocore.exceptions import BotoCoreError, ClientError
-from threading import Thread
 
 session = Session(profile_name="video-aws")
-ml = session.client("rekognition")
+term = terminal.TerminalController()
 s3 = session.client('s3')
 s3_bucket = 'ace-ml-video'
 files = []
-
-def path_leaf(path):
-    head, tail = ntpath.split(path)
-    return tail or ntpath.basename(head)
+#min_confidence_level = 60
 
 def render_video(name):
 
-    file = path_leaf(name)
+    file = os.path.splitext(os.path.basename(name))[0]
     video = cv2.VideoCapture(name)
 
     # make a temp folder for folder rendering
@@ -34,23 +29,19 @@ def render_video(name):
 
     length = video.get(cv2.CAP_PROP_FRAME_COUNT)
     fps = video.get(cv2.CAP_PROP_FPS)
-    min = int( length / fps ) / 4
+    min = int( length / fps ) / 2
     print "* Data sets: %s" % (min)
 
     contexts = {}
 
     # run every 4 seconds
     for x in range(1, min):
-        pos = x * 1000 * 4
+        percent = float(x) / float(min)
+        pos = x * 1000 * 2
         video.set(cv2.CAP_PROP_POS_MSEC,pos)      # just cue to 20 sec. position
         success,image = video.read()
         if success:
-            file_name = file+'/'+str(x)+'.jpeg'
-            file_location = '/tmp/video-aws/'+file_name
-            cv2.imwrite(file_location, image, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
-            s3.upload_file(file_location, s3_bucket, file_name)
-            files.append(file_name)
-            os.remove(file_location)
+            upload_s3(file, image, x, percent)
 
     try:
         os.rmdir('/tmp/video-aws/'+file)  
@@ -59,24 +50,35 @@ def render_video(name):
     except:
         return False
 
-def train_model():
-    contexts = {}
-    for file_name in files:
-        print(s3_bucket+'/'+file_name)
-        labels = ml.detect_labels(
-                Image = {
-                    'S3Object': {
-                        'Bucket': s3_bucket,
-                        'Name': file_name
-                    }
-                })
-        data = labels['Labels']
-        for item in data:
-            confidence = int(item['Confidence'])
-            if(confidence >= 80):
-                attr = str(item['Name'])
-                contexts[attr] = ''
-    return contexts
+
+def upload_s3(file, image, count, percent):
+    print("\033[F"+'Analyzing video: '+str(int(percent * 100))+'%')    
+    file_name = file+'/'+str(count)+'.jpeg'
+    file_location = '/tmp/video-aws/'+file_name
+    image = cv2.resize(image, (0,0), fx=0.50, fy=0.50) 
+    cv2.imwrite(file_location, image, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
+    #s3.upload_file(file_location, s3_bucket, file_name, {'ACL': 'public-read','ContentType': "image/jpeg"})
+    files.append(file_name)
+    os.remove(file_location)
+
+#def train_model():
+#    contexts = {}
+#    for file_name in files:
+#        print(s3_bucket+'/'+file_name)
+#        labels = ml.detect_labels(
+#                Image = {
+#                    'S3Object': {
+#                        'Bucket': s3_bucket,
+#                        'Name': file_name
+#                    }
+#               })
+#        data = labels['Labels']
+#        for item in data:
+#            confidence = int(item['Confidence'])
+#            if(confidence >= min_confidence_level):
+#                attr = str(item['Name'])
+#                contexts[attr] = ''
+#    return contexts
  
 def usage():
     print "./parse.py -f <file> -h"
@@ -105,10 +107,10 @@ def main(argv):
         usage()
         sys.exit(-1)
 
-    print "* File: %s " % (file)
+    print "* File: %s \n" % (file)
     render_video(file)
-    data_model = train_model()
-    print(data_model)
+    #data_model = train_amazon_model()
+    #print(data_model)
 
     return True
 
