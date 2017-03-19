@@ -8,7 +8,8 @@ from botocore.exceptions import BotoCoreError, ClientError
 session = Session(profile_name="video-aws")
 term = terminal.TerminalController()
 s3 = session.client('s3')
-s3_bucket = 'ace-ml-video'
+ec2_region = 'us-west-2'
+s3_bucket = 'face-ml-video'
 faces = {}
 #min_confidence_level = 60
 
@@ -63,7 +64,7 @@ def upload_s3(file, image, count, percent):
 
 #  run IBM watson on this
 def analyze_file(s3_bucket, file_name):
-    image_url = 'https://s3-us-wet-2.amazonaws.com/%s/%s' % (s3_bucket, file_name)
+    image_url = 'https://s3-%s.amazonaws.com/%s/%s' % (ec2_region, s3_bucket, file_location)
     watson_url = 'https://visual-recognition-demo.mybluemix.net/api/classify'
     r = requests.post(watson_url, data = {'url':image_url})
     try:
