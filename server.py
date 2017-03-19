@@ -74,9 +74,12 @@ def analyze_file(s3_bucket, file_name):
         faces[identity] = ''
 
 def display_ml_detection():
+    people = 0
     for key in faces:
         if(len(key) > 0):
             print("Detected person: "+key)
+            people = people + 1
+    return people
 
 #def train_model():
 #    contexts = {}
@@ -126,7 +129,9 @@ def main(argv):
 
     print "* File: %s \n" % (file)
     render_video(file)
-    display_ml_detection()
+    people = display_ml_detection()
+    if(people == 0):
+        print("Detected no famous people")
     return True
 
 if __name__ == "__main__":
