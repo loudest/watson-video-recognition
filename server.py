@@ -55,8 +55,9 @@ def render_video(name):
     try:
         os.rmdir('/tmp/video-aws/'+file)  
         os.rmdir('/tmp/video-aws/')
-
-    return True
+        return True
+    except:
+        return False
 
 def train_model():
     contexts = {}
